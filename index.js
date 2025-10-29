@@ -32,10 +32,10 @@ app.post("/signup",(req,res) => {
    const  {username,password} = req.body; 
    bcrypt.hash(password, saltRounds, (err, hash) => {
   if (err) throw err;
-  userInfo.push({username,hash});
+  userInfo.push({username,hash, failedAttempts : 0,lockoutUntil : null});
+  res.render("home.ejs");
   return hash;
 });
-   res.render("home.ejs");
 })
 
 app.get("/login",(req,res) => {
@@ -46,19 +46,37 @@ app.post("/home",(req,res) => {
     const {username,password} = req.body;
     const user = userInfo.find(u => u.username === username);
     if(!user){
-        res.send("Invalid User Info");
+        return res.send("Invalid User Info");
     }
+
+    const lockoutDurationMs = 2*60*1000;
+    const now = Date.now();
+    if (user.lockoutUntil && user.lockoutUntil > now) {
+        const remainingTimeSec = Math.ceil((user.lockoutUntil - now) / 1000);
+        return res.send(`LOCKED_OUT:${remainingTimeSec}`); 
+    }
+
     bcrypt.compare(password, user.hash, (err, result) => {
         if (err) {
             console.error(err);
             return res.status(500).send("Server Error during login.");
         }
         if(result === true){
-            res.render("home.ejs", { username: user.username });
+            user.failedAttempts = 0;
+            user.lockoutUntil  = null;
+          return   res.send("LOGIN_SUCCESS");
         }else {
-            res.send("Invalid User Info");
+            user.failedAttempts++;
+            if(user.failedAttempts>=3){
+                user.lockoutUntil = now + lockoutDurationMs;
+                res.send("ACCOUNT_LOCKED_2MIN");
+            }else{
+                const remaining = 3-user.failedAttempts;
+                res.send(`Invalid password. ${remaining} attempt(s) remaining.`);
+            }
         }
                 }
+                
     )
 })
 

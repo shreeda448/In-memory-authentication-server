@@ -6,10 +6,68 @@
     <title>Signup</title>
 </head>
 <body>
-    <form method="post" action="http://localhost:8080/home">
-        <input type="text" placeholder="username" name="username">
-        <input type="password" placeholder="password" name="password">
-        <button type="submit">Submit</button>
+    <form method="post" action="http://localhost:8080/home" id="loginForm">
+        <input type="text" placeholder="username" name="username" id="username">
+        <input type="password" placeholder="password" name="password" id="password">
+        <button type="submit" id="submitBtn">Submit</button>
     </form>
+    <p id="numberOfTriesRemaining"></p>
+    <p id="timeLeft"></p>
+    <script>
+            const loginForm = document.getElementById("loginForm");
+            const username = document.getElementById("username");
+            const password = document.getElementById("password");
+            const submitBtn = document.getElementById("submitBtn");
+            const  numberOfTriesRemaining = document.getElementById("numberOfTriesRemaining");
+            const timeLeft = document.getElementById("timeLeft");
+            loginForm.addEventListener("submit",async (e) => {
+                e.preventDefault();
+                const response = await fetch("/home",{
+                    method : 'POST',
+                    headers : {'Content-Type' : 'application/json'},
+                    body : JSON.stringify({
+                        username : username.value ,
+                        password : password.value ,
+                    })
+                });
+
+                const resultText = await response.text();
+                         if(resultText === 'LOGIN_SUCCESS'){
+                        window.location.href = "http://localhost:8080/home";
+                        return;
+                     }else 
+                    if(resultText.startsWith("LOCKED_OUT")){
+                    const remainingSec = resultText.split(':')[1];
+                    username.disabled = true;
+                    password.disabled = true;
+                    submitBtn.disabled = true;
+
+                    numberOfTriesRemaining.innerText = "Account is temporarily blocked.";
+                    timeLeft.innerText = `Try again in ${remainingSec} seconds.`;
+                    setTimeout(() => {
+                        username.disabled = false ;
+                        password.disabled = false;
+                        submitBtn.disabled = false;
+                        timeLeft.innerText = "Lockout cleared. You can try again.";
+                    }, remainingSec*1000)
+                }else if(resultText === "ACCOUNT_LOCKED_2MIN"){
+                    numberOfTriesRemaining.innerText = "Invalid password. Account locked for 2 minutes due to 3 failed attempts.";
+                    timeLeft.innerText = "Try again after 120 seconds.";
+                    username.disabled = true;
+                    password.disabled = true;
+                    submitBtn.disabled = true;
+
+            setTimeout(() => {
+                username.disabled = false;
+                password.disabled = false;
+                submitBtn.disabled = false;
+                timeLeft.innerText = "Lockout cleared. You can try again.";
+            }, 120000);
+                }else {
+            numberOfTriesRemaining.innerText = resultText;
+            timeLeft.innerText = "";
+        }
+            })
+    </script>
 </body>
 </html>
